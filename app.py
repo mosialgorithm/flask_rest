@@ -2,10 +2,11 @@ import redis
 from datetime import timedelta
 from flask import Flask, jsonify
 from flask_restful import Api
-from flask_jwt_extended import JWTManager, get_jwt_header
+from flask_jwt_extended import JWTManager
 from db import db
 
 from resources.item import Item, ItemList
+from resources.store import Store, StoreList
 from security import identity, authenticate
 from resources.user import UserRegister, User, UserLogin, UserLogout, TokenRefresh
 from resources.article import Article, Articles
@@ -25,9 +26,6 @@ app.config["JWT_ACCESS_TOKEN_EXPIRES"] = ACCESS_EXPIRES
 
 app.config['PROPAGATE_EXCEPTIONS'] = True
 
-# app.config['JWT_BLACKLIST_ENABLED'] = True
-# app.config['JWT_BLACKLIST_TOKEN_CHECKS'] = ['access', 'refresh']
-
 app.secret_key = 'mositafa'
 
 api = Api(app)
@@ -36,14 +34,10 @@ api = Api(app)
 def create_tables():
     db.create_all()
     
-    
+# ====================================== JWT_CONFIG =========================================    
 jwt  = JWTManager(app)
 
-jwt_redis_blocklist = redis.StrictRedis(
-    host="localhost", port=6379, db=0, decode_responses=True
-)
-
-# jwt_header = get_jwt_header()
+jwt_redis_blocklist = redis.StrictRedis(host="localhost", port=6379, db=0, decode_responses=True)
 
 @jwt.additional_claims_loader
 def add_claims_to_jwt(identity):
@@ -56,10 +50,6 @@ def check_if_token_is_revoked(jwt_header, jwt_payload: dict):
     jti = jwt_payload["jti"]
     token_in_redis = jwt_redis_blocklist.get(jti)
     return token_in_redis is not None
-
-# @jwt.token_in_blocklist_loader
-# def check_if_token_in_blocklist(decrypted_token):
-#     return decrypted_token['jti'] in BLOCKLIST
 
 @jwt.expired_token_loader
 def expired_token_callback(jwt_header, jwt_payload):
@@ -96,10 +86,15 @@ def revoked_token_callback():
         'error' : 'token_revoked'
     }), 401
     
+# ====================================== END_OF JWT_CONFIG ========================================= 
+    
     
 # ============================= URL ==========================================    
 api.add_resource(Item, '/item/<string:name>')
 api.add_resource(ItemList, '/items')
+
+api.add_resource(Store, '/store/<string:name>')
+api.add_resource(StoreList, '/stores')
 
 api.add_resource(Article, '/article/<string:title>')
 api.add_resource(Articles, '/articles')
